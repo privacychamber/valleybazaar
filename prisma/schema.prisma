@@ -1,0 +1,484 @@
+// Valley Bazaar — Future Production Prisma Schema
+// Database architecture: PostgreSQL (Portable to MilesWeb Node.js or self-managed DB)
+// Note: In Demo Mode, the platform operates with centralized typed mock data in src/data/demo/
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// 1. IAM & ACCESS CONTROL
+// ----------------------------------------------------
+
+enum RoleType {
+  GUEST
+  CUSTOMER
+  SELLER_APPLICANT
+  SELLER_OWNER
+  SELLER_STAFF
+  SUPPORT_AGENT
+  CATALOG_MODERATOR
+  OPERATIONS_MANAGER
+  FINANCE_MANAGER
+  CONTENT_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  phone         String?
+  name          String
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  userRoles     UserRole[]
+  addresses     Address[]
+  orders        Order[]
+  sellerProfile SellerProfile?
+  storeMembers  StoreMembership[]
+  reviews       Review[]
+  tickets       SupportTicket[]
+  auditLogs     AuditLog[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        RoleType         @unique
+  description String
+  userRoles   UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  slug        String           @unique // e.g. "catalog.product.approve"
+  description String
+  roles       RolePermission[]
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+// ----------------------------------------------------
+// 2. SELLER & STORE PROFILE
+// ----------------------------------------------------
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  INFO_REQUIRED
+  APPROVED
+  REJECTED
+}
+
+model SellerApplication {
+  id                     String            @id @default(uuid())
+  businessName           String
+  applicantName          String
+  email                  String
+  phone                  String
+  businessType           String
+  district               String
+  townVillage            String
+  experienceYears        Int
+  primaryCategories      String[]
+  productionCapacity     String
+  hasGst                 Boolean           @default(false)
+  gstNumber              String?
+  fssaiNumber            String?
+  handicraftRegistration String?
+  story                  String            @db.Text
+  status                 ApplicationStatus @default(SUBMITTED)
+  moderatorNotes         String?           @db.Text
+  submittedAt            DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+}
+
+model SellerProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legalEntityName String
+  bankAccountMask String
+  bankIfsc        String
+  panNumber       String?
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  stores          Store[]
+}
+
+model Store {
+  id              String            @id @default(uuid())
+  sellerProfileId String
+  sellerProfile   SellerProfile     @relation(fields: [sellerProfileId], references: [id])
+  name            String
+  slug            String            @unique
+  tagline         String?
+  description     String            @db.Text
+  location        String
+  district        String
+  regionSlug      String
+  logoUrl         String?
+  bannerUrl       String?
+  establishedYear Int
+  verified        Boolean           @default(false)
+  rating          Decimal           @default(5.0) @db.Decimal(3, 2)
+  reviewCount     Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  memberships     StoreMembership[]
+  products        Product[]
+  sellerOrders    SellerOrder[]
+  sellerLedgers   SellerLedger[]
+  payouts         Payout[]
+}
+
+model StoreMembership {
+  id        String   @id @default(uuid())
+  storeId   String
+  userId    String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // OWNER, STAFF, DISPATCH_COORDINATOR
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, userId])
+}
+
+// ----------------------------------------------------
+// 3. CATALOGUE, PRODUCTS & INVENTORY
+// ----------------------------------------------------
+
+enum ProductStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  PUBLISHED
+  PAUSED
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String    @db.Text
+  imageUrl    String?
+  featured    Boolean   @default(false)
+  products    Product[]
+}
+
+model Product {
+  id               String         @id @default(uuid())
+  storeId          String
+  categoryId       String
+  store            Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category         Category       @relation(fields: [categoryId], references: [id])
+  title            String
+  slug             String         @unique
+  shortDescription String
+  description      String         @db.Text
+  regionSlug       String
+  price            Decimal        @db.Decimal(10, 2)
+  originalPrice    Decimal?       @db.Decimal(10, 2)
+  unit             String
+  inventory        Int            @default(0)
+  status           ProductStatus  @default(DRAFT)
+  featured         Boolean        @default(false)
+  giTagged         Boolean        @default(false)
+  handcrafted      Boolean        @default(true)
+  naturalOrganic   Boolean        @default(false)
+  originVillage    String
+  originDistrict   String
+  weightGrams      Int?
+  shelfLife        String?
+  attributesJson   Json?
+  rating           Decimal        @default(5.0) @db.Decimal(3, 2)
+  reviewCount      Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  images           ProductImage[]
+  orderItems       OrderItem[]
+  reviews          Review[]
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  isPrimary Boolean  @default(false)
+  order     Int      @default(0)
+}
+
+// ----------------------------------------------------
+// 4. ORDERS & MULTI-VENDOR ARCHITECTURE
+// ----------------------------------------------------
+
+enum ParentOrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  PARTIALLY_FULFILLED
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfilmentStatus {
+  UNFULFILLED
+  PREPARING
+  DISPATCHED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  phone      String
+  street     String
+  city       String
+  district   String
+  state      String
+  postalCode String
+  isDefault  Boolean  @default(false)
+  orders     Order[]
+}
+
+model Order {
+  id                String            @id @default(uuid())
+  orderNumber       String            @unique
+  customerId        String
+  customer          User              @relation(fields: [customerId], references: [id])
+  shippingAddressId String
+  shippingAddress   Address           @relation(fields: [shippingAddressId], references: [id])
+  subtotal          Decimal           @db.Decimal(10, 2)
+  shippingFee       Decimal           @db.Decimal(10, 2)
+  discount          Decimal           @default(0) @db.Decimal(10, 2)
+  total             Decimal           @db.Decimal(10, 2)
+  status            ParentOrderStatus @default(PENDING_PAYMENT)
+  paymentMethod     String
+  paymentStatus     String
+  trackingReference String            @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  sellerOrders      SellerOrder[]
+  payments          Payment[]
+}
+
+model SellerOrder {
+  id                 String           @id @default(uuid())
+  orderId            String
+  storeId            String
+  order              Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  store              Store            @relation(fields: [storeId], references: [id])
+  subtotal           Decimal          @db.Decimal(10, 2)
+  shippingFee        Decimal          @db.Decimal(10, 2)
+  commissionRate     Decimal          @db.Decimal(5, 4) // e.g. 0.0800
+  commissionAmount   Decimal          @db.Decimal(10, 2)
+  sellerPayoutAmount Decimal          @db.Decimal(10, 2)
+  fulfilmentStatus   FulfilmentStatus @default(UNFULFILLED)
+  courierPartner     String?
+  trackingNumber     String?
+  dispatchedAt       DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  items              OrderItem[]
+  shipments          Shipment[]
+}
+
+model OrderItem {
+  id            String      @id @default(uuid())
+  sellerOrderId String
+  productId     String
+  sellerOrder   SellerOrder @relation(fields: [sellerOrderId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id])
+  title         String
+  price         Decimal     @db.Decimal(10, 2)
+  quantity      Int
+}
+
+// ----------------------------------------------------
+// 5. PAYMENTS, COMMISSIONS & SETTLEMENTS
+// ----------------------------------------------------
+
+model Payment {
+  id             String         @id @default(uuid())
+  orderId        String
+  order          Order          @relation(fields: [orderId], references: [id])
+  provider       String         // e.g. "RAZORPAY", "CASHFREE"
+  gatewayOrderId String?        @unique
+  gatewayPaymentId String?      @unique
+  amount         Decimal        @db.Decimal(10, 2)
+  currency       String         @default("INR")
+  status         String         // SUCCESS, PENDING, FAILED
+  idempotencyKey String         @unique
+  createdAt      DateTime       @default(now())
+
+  events         PaymentEvent[]
+  refunds        Refund[]
+}
+
+model PaymentEvent {
+  id        String   @id @default(uuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  eventType String
+  payload   Json
+  createdAt DateTime @default(now())
+}
+
+model Refund {
+  id        String   @id @default(uuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+  amount    Decimal  @db.Decimal(10, 2)
+  reason    String
+  status    String   // PENDING, PROCESSED, FAILED
+  createdAt DateTime @default(now())
+}
+
+model CommissionPolicy {
+  id          String   @id @default(uuid())
+  categorySlug String  @unique
+  percentage  Decimal  @db.Decimal(5, 2) // e.g. 8.00
+  flatFee     Decimal  @default(0) @db.Decimal(10, 2)
+  description String
+  active      Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model SellerLedger {
+  id          String   @id @default(uuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  entryType   String   // CREDIT_SALE, DEBIT_COMMISSION, DEBIT_REFUND, PAYOUT
+  amount      Decimal  @db.Decimal(10, 2)
+  referenceId String?
+  description String
+  createdAt   DateTime @default(now())
+}
+
+enum PayoutStatus {
+  PENDING_REVIEW
+  APPROVED
+  PROCESSING
+  COMPLETED
+  ON_HOLD
+}
+
+model Payout {
+  id                 String       @id @default(uuid())
+  payoutReference    String       @unique
+  storeId            String
+  store              Store        @relation(fields: [storeId], references: [id])
+  periodStart        DateTime
+  periodEnd          DateTime
+  grossSales         Decimal      @db.Decimal(10, 2)
+  platformCommission Decimal      @db.Decimal(10, 2)
+  shippingDeduction  Decimal      @db.Decimal(10, 2)
+  netPayout          Decimal      @db.Decimal(10, 2)
+  status             PayoutStatus @default(PENDING_REVIEW)
+  authorizedById     String?
+  processedAt        DateTime?
+  createdAt          DateTime     @default(now())
+}
+
+// ----------------------------------------------------
+// 6. LOGISTICS, REVIEWS, AUDIT & SUPPORT
+// ----------------------------------------------------
+
+model Shipment {
+  id            String      @id @default(uuid())
+  sellerOrderId String
+  sellerOrder   SellerOrder @relation(fields: [sellerOrderId], references: [id])
+  carrier       String
+  awbNumber     String
+  pickupAddress Json
+  status        String
+  shippedAt     DateTime?
+  deliveredAt   DateTime?
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  userId    String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String   @db.Text
+  verified  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id             String   @id @default(uuid())
+  ticketNumber   String   @unique
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  subject        String
+  category       String
+  priority       String
+  status         String
+  relatedOrderId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  actor        User?    @relation(fields: [actorId], references: [id])
+  actorName    String
+  actorRole    String
+  action       String
+  resourceType String
+  resourceId   String
+  details      String   @db.Text
+  ipAddress    String
+  createdAt    DateTime @default(now())
+}
+
