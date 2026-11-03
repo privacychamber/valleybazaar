@@ -6,7 +6,8 @@ import { notFound } from "next/navigation";
 import { demoOrders } from "@/data/demo/orders";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { useDemo } from "@/context/DemoContext";
-import { ArrowLeft, Truck, PackageCheck, Printer, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
+import { SellerOrder } from "@/types";
 
 interface PageProps {
   params: Promise<{ orderId: string }>;
@@ -18,11 +19,19 @@ function SellerOrderDetailContent({ params }: PageProps) {
   const currentSellerId = "seller-1";
 
   const parentOrder = demoOrders.find((o) => o.id === orderId);
+  const subOrder = parentOrder?.sellerOrders.find((so) => so.sellerId === currentSellerId);
+
+  // Unconditional hook calls at top of component
+  const [fulfilmentStatus, setFulfilmentStatus] = useState<SellerOrder["fulfilmentStatus"]>(
+    subOrder?.fulfilmentStatus || "unfulfilled"
+  );
+  const [courier, setCourier] = useState(subOrder?.courierPartner || "Delhivery Surface");
+  const [trackingNo, setTrackingNo] = useState(subOrder?.trackingNumber || "DELHIVERY-KLU-9921");
+
   if (!parentOrder) {
     notFound();
   }
 
-  const subOrder = parentOrder.sellerOrders.find((so) => so.sellerId === currentSellerId);
   if (!subOrder) {
     // Tenant isolation: Seller cannot see other sellers' sub-orders
     return (
@@ -35,10 +44,6 @@ function SellerOrderDetailContent({ params }: PageProps) {
       </div>
     );
   }
-
-  const [fulfilmentStatus, setFulfilmentStatus] = useState(subOrder.fulfilmentStatus);
-  const [courier, setCourier] = useState(subOrder.courierPartner || "Delhivery Surface");
-  const [trackingNo, setTrackingNo] = useState(subOrder.trackingNumber || "DELHIVERY-KLU-9921");
 
   const handleUpdateFulfilment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +109,7 @@ function SellerOrderDetailContent({ params }: PageProps) {
             <label className="block font-semibold text-neutral-700 mb-1">Fulfilment Status</label>
             <select
               value={fulfilmentStatus}
-              onChange={(e) => setFulfilmentStatus(e.target.value as any)}
+              onChange={(e) => setFulfilmentStatus(e.target.value as SellerOrder["fulfilmentStatus"])}
               className="w-full bg-[#F7F3EB] rounded-xl px-3 py-2 border border-[#E5DED2] font-semibold text-[#17241F]"
             >
               <option value="unfulfilled">Unfulfilled</option>
@@ -153,4 +158,3 @@ export default function SellerOrderDetailPage({ params }: PageProps) {
     </Suspense>
   );
 }
-

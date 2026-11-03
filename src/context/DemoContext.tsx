@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { RoleType, CartItem, Product, Cart } from "@/types";
 import { demoRoleProfiles, demoProducts, DemoRoleProfile } from "@/data/demo";
 
@@ -36,22 +36,24 @@ const INITIAL_CART_ITEMS: CartItem[] = [
 ];
 
 export function DemoProvider({ children }: { children: React.ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<RoleType>("customer");
+  const [currentRole, setCurrentRole] = useState<RoleType>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("vb_demo_role") as RoleType;
+      if (saved && demoRoleProfiles[saved]) {
+        return saved;
+      }
+    }
+    return "customer";
+  });
   const [cartItems, setCartItems] = useState<CartItem[]>(INITIAL_CART_ITEMS);
   const [wishlist, setWishlist] = useState<string[]>([demoProducts[2].id, demoProducts[4].id]);
   const [demoNotification, setDemoNotification] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Restore saved demo role from localStorage if available
-    const saved = localStorage.getItem("vb_demo_role") as RoleType;
-    if (saved && demoRoleProfiles[saved]) {
-      setCurrentRole(saved);
-    }
-  }, []);
-
   const setRole = (role: RoleType) => {
     setCurrentRole(role);
-    localStorage.setItem("vb_demo_role", role);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("vb_demo_role", role);
+    }
     showNotification(`Switched role to: ${demoRoleProfiles[role].title}`);
   };
 
@@ -153,4 +155,3 @@ export function useDemo() {
   }
   return context;
 }
-

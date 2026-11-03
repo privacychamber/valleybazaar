@@ -187,7 +187,7 @@ export default function SellerApplicationPage() {
                   <label className="block font-semibold text-[#17241F] mb-1">Business Classification</label>
                   <select
                     value={formData.businessType}
-                    onChange={(e) => setFormData({ ...formData, businessType: e.target.value as any })}
+                    onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
                     className="w-full bg-[#F7F3EB] rounded-xl px-3 py-2.5 border border-[#E5DED2] font-semibold text-[#17241F]"
                   >
                     <option value="artisan_craft">Artisan & Craftsperson</option>
