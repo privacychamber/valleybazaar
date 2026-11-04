@@ -3,15 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { 
-  Users, 
   ChevronUp, 
   ChevronDown, 
   Check, 
   ExternalLink, 
-  ShieldCheck, 
-  Store, 
-  UserCircle, 
-  Briefcase,
   X 
 } from "lucide-react";
 import { useDemo } from "@/context/DemoContext";
@@ -19,11 +14,12 @@ import { RoleType } from "@/types";
 import { demoRoleProfiles } from "@/data/demo";
 
 export function RoleSwitcher() {
+  const [isOpen, setIsOpen] = useState(false);
+  const { currentRole, roleProfile, setRole, demoNotification } = useDemo();
+
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "false") {
     return null;
   }
-  const [isOpen, setIsOpen] = useState(false);
-  const { currentRole, roleProfile, setRole, demoNotification } = useDemo();
 
   const externalRoles: RoleType[] = [
     "guest",
@@ -249,4 +245,3 @@ export function RoleSwitcher() {
     </>
   );
 }
-

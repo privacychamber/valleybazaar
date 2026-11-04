@@ -20,6 +20,7 @@ export interface User {
   avatar?: string;
   roles: RoleType[];
   activeRole: RoleType;
+  permissions?: Permission[];
   storeId?: string;
   createdAt: string;
 }

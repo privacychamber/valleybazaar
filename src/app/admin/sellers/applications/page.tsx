@@ -60,13 +60,12 @@ export default function SellerApplicationsReviewPage() {
                 </td>
                 <td className="py-3.5 px-4">
                   <span
-                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full capitalize ${
-                      app.status === "approved"
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        : app.status === "info_required"
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full capitalize ${app.status === "approved"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : app.status === "info_required"
                         ? "bg-amber-50 text-amber-800 border border-amber-200"
                         : "bg-blue-50 text-blue-800 border border-blue-200"
-                    }`}
+                      }`}
                   >
                     {app.status.replace("_", " ")}
                   </span>

@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Info, X, ShieldAlert, Sparkles } from "lucide-react";
+import { X, Sparkles } from "lucide-react";
 import { useDemo } from "@/context/DemoContext";
 
 export function DemoModeBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  const { roleProfile } = useDemo();
+
   if (process.env.NEXT_PUBLIC_DEMO_MODE === "false") {
     return null;
   }
-  const [dismissed, setDismissed] = useState(false);
-  const { roleProfile } = useDemo();
 
   if (dismissed) return null;
 
@@ -45,4 +46,3 @@ export function DemoModeBanner() {
     </div>
   );
 }
-

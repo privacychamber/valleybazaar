@@ -1,4 +1,4 @@
-import { User, RoleType, Permission } from "@/types";
+import { User, Permission } from "@/types";
 import { demoCurrentUser } from "@/data/demo/users";
 
 export interface IAuthService {
@@ -16,17 +16,16 @@ export class AuthServiceBoundary implements IAuthService {
     if (user.roles.includes("super_admin") || user.roles.includes("admin")) {
       return true;
     }
-    return true; // Configurable RBAC permission check
+    return Boolean(user.permissions && user.permissions.includes(permission));
   }
 
   async validateSellerScope(user: User, targetStoreId: string): Promise<boolean> {
-    if (user.roles.includes("super_admin") || user.roles.includes("admin")) {
+    if (user.roles.includes("super_admin") || user.roles.includes("admin") || user.roles.includes("operations_manager")) {
       return true;
     }
     // Strict seller tenant isolation check
-    return user.storeId === targetStoreId;
+    return Boolean(user.storeId && user.storeId === targetStoreId);
   }
 }
 
 export const authService = new AuthServiceBoundary();
-
